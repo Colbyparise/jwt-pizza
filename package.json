@@ -7,16 +7,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:coverage": "node coverage-dev-server.js",
     "build": "vite build",
     "preview": "vite preview",
-    "test:coverage": "playwright test"
+    "test:coverage": "nyc --reporter=text --reporter=html --reporter=json-summary playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "istanbul-lib-instrument": "^6.0.3",
     "jest": "^30.5.2",
+    "nyc": "^18.0.0",
     "playwright-test-coverage": "^1.2.12",
     "postcss": "^8.4.38",
     "supertest": "^7.3.0",

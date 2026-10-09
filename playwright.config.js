@@ -13,7 +13,7 @@ export default defineConfig({
 
   reporter: 'html',
 
-  timeout: 5000,
+  timeout: 15000,
 
   use: {
     baseURL: 'http://localhost:5173',
@@ -31,7 +31,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run dev:coverage',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 15000,

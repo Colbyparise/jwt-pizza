@@ -3,5 +3,6 @@
 cookies.txt
 config.js
 coverage
+.nyc_output
 dist
 **/.vite

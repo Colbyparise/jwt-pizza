@@ -1,14 +1,53 @@
 name: CI Pipeline
 
 on:
+  pull_request:
   push:
     branches:
       - main
   workflow_dispatch:
 
 jobs:
+  test:
+    name: Playwright coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run tests
+        run: npm run test:coverage
+
+      - name: Update coverage badge
+        env:
+          NET_ID: ${{ secrets.NET_ID }}
+          FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+        run: |
+          if [[ "$GITHUB_REF" == "refs/heads/main" && "$GITHUB_EVENT_NAME" != "pull_request" && -n "$NET_ID" && -n "$FACTORY_API_KEY" ]]; then
+            coverage=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+            color=$(awk -v coverage="$coverage" 'BEGIN { print coverage < 80 ? "red" : "green" }')
+            curl -s -X POST "https://pizza-factory.cs329.click/api/badge/$NET_ID/jwtpizzacoverage?label=Coverage&value=$coverage%25&color=$color" \
+              -H "authorization: bearer $FACTORY_API_KEY"
+          else
+            echo "Coverage badge skipped because NET_ID or FACTORY_API_KEY is not configured."
+          fi
+
   build:
     name: Build
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.set_version.outputs.version }}

@@ -1,5 +1,13 @@
 {
   "check-coverage": true,
+  "include": [
+    "src/app/**/*.tsx",
+    "src/components/**/*.tsx",
+    "src/hooks/**/*.tsx",
+    "src/service/**/*.ts",
+    "src/icons.tsx",
+    "src/views/**/*.tsx"
+  ],
   "branches": 0,
   "lines": 80,
   "functions": 0,
