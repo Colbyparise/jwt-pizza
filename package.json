@@ -8,13 +8,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:coverage": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
     "jest": "^30.5.2",
+    "playwright-test-coverage": "^1.2.12",
     "postcss": "^8.4.38",
     "supertest": "^7.3.0",
     "tailwindcss": "^3.4.3",
