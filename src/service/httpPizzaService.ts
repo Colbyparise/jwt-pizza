@@ -1,4 +1,4 @@
-import { PizzaService, Franchise, FranchiseList, Store, OrderHistory, User, Menu, Order, Endpoints, OrderResponse, JWTPayload } from './pizzaService';
+import { PizzaService, Franchise, FranchiseList, Store, OrderHistory, User, UserList, Menu, Order, Endpoints, OrderResponse, JWTPayload } from './pizzaService';
 
 const pizzaServiceUrl = import.meta.env.VITE_PIZZA_SERVICE_URL;
 const pizzaFactoryUrl = import.meta.env.VITE_PIZZA_FACTORY_URL;
@@ -68,6 +68,22 @@ class HttpPizzaService implements PizzaService {
       }
     }
     return Promise.resolve(result);
+  }
+  
+  //this is where the necessary frontend logic for the new user update feature is implemented for TDD 
+  async updateUser(user: User): Promise<User> {
+    const { user: updatedUser, token } = await this.callEndpoint(`/api/user/${user.id}`, 'PUT', user);
+    localStorage.setItem('token', token);
+    return updatedUser;
+  }
+
+  async getUsers(page: number, limit: number, nameFilter: string): Promise<UserList> {
+    const query = new URLSearchParams({ page: String(page), limit: String(limit), name: nameFilter });
+    return this.callEndpoint(`/api/user?${query.toString()}`);
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    return this.callEndpoint(`/api/user/${userId}`, 'DELETE');
   }
 
   async getMenu(): Promise<Menu> {
