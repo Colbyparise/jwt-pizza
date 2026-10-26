@@ -36,6 +36,7 @@ export default function DinerDashboard(props: Props) {
     return role.role;
   }
 
+  // Update user information in database and refresh the local state
   async function updateUser() {
     const updatedUser: User = {
       id: user.id,
@@ -46,6 +47,7 @@ export default function DinerDashboard(props: Props) {
     };
     const savedUser = await pizzaService.updateUser(updatedUser);
     props.setUser(savedUser);
+    if (passwordRef.current) passwordRef.current.value = '';
     setTimeout(() => {
       HSOverlay.close(document.getElementById('hs-jwt-modal')!);
     }, 100);

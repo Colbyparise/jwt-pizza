@@ -282,6 +282,13 @@ test('diner can open the profile editor', async ({ page }) => {
   await expect(page.getByRole('main')).toContainText('Updated Pizza Diner');
   await expect(page.getByRole('main')).toContainText('updated@example.com');
 
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Updated Pizza Diner');
+  await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('updated@example.com');
+  await expect(page.getByRole('textbox', { name: 'New password' })).toHaveValue('');
+  await page.getByRole('button', { name: 'Update' }).click();
+  await expect(page.locator('[role="dialog"]')).toHaveClass(/hidden/);
+
   await page.getByRole('link', { name: 'Logout' }).click();
   await page.getByRole('link', { name: 'Login' }).click();
   await page.getByRole('textbox', { name: 'Email address' }).fill('updated@example.com');
@@ -291,6 +298,30 @@ test('diner can open the profile editor', async ({ page }) => {
   await expect(page.getByRole('main')).toContainText('Updated Pizza Diner');
 });
 
+test('diner can update profile without changing the password', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Register' }).click();
+  await page.getByRole('textbox', { name: 'Full name' }).fill('Pizza Diner');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('diner@example.com');
+  await page.getByRole('textbox', { name: 'Password' }).fill('original-password');
+  await page.getByRole('button', { name: 'Register' }).click();
+
+  await page.getByRole('link', { name: 'pd' }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('textbox', { name: 'Name' }).fill('Renamed Diner');
+  await page.getByRole('textbox', { name: 'Email' }).fill('renamed@example.com');
+  await page.getByRole('button', { name: 'Update' }).click();
+
+  await page.getByRole('link', { name: 'Logout' }).click();
+  await page.getByRole('link', { name: 'Login' }).click();
+  await page.getByRole('textbox', { name: 'Email address' }).fill('renamed@example.com');
+  await page.getByRole('textbox', { name: 'Password' }).fill('original-password');
+  await page.getByRole('button', { name: 'Login' }).click();
+  await page.goto('/diner-dashboard');
+  await expect(page.getByRole('main')).toContainText('Renamed Diner');
+});
+
 test('admin can search, paginate, and delete users', async ({ page }) => {
   await mockApi(page, { loggedIn: true, role: 'admin' });
   await page.goto('/admin-dashboard');
@@ -298,6 +329,8 @@ test('admin can search, paginate, and delete users', async ({ page }) => {
   const userTable = page.getByRole('table', { name: 'Users' });
   await expect(userTable).toContainText('Admin User');
   await expect(userTable).toContainText('Pizza Diner');
+  await expect(userTable.getByRole('row', { name: /Pizza Diner/ })).toContainText('diner@example.com');
+  await expect(userTable.getByRole('row', { name: /Pizza Diner/ })).toContainText('diner');
   await expect(page.getByRole('button', { name: 'Next users page' })).toBeEnabled();
 
   await page.getByRole('button', { name: 'Next users page' }).click();
