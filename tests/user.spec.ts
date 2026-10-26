@@ -16,7 +16,7 @@ const pizza = {
   price: 12,
 };
 
-async function mockApi(page: Page, options: { loggedIn?: boolean; withOrders?: boolean; role?: string } = {}) {
+async function mockApi(page: Page, options: { loggedIn?: boolean; withOrders?: boolean; role?: string; failDeleteUser?: boolean } = {}) {
   let currentUser: any = { ...diner, roles: [{ role: options.role || 'diner' }] };
   let currentPassword = 'secret';
   let mockUsers: any[] = [
@@ -24,6 +24,12 @@ async function mockApi(page: Page, options: { loggedIn?: boolean; withOrders?: b
     { id: 'diner-2', name: 'Buddy', email: 'buddy@example.com', roles: [{ role: 'diner' }] },
     { id: 'diner-1', name: 'Pizza Diner', email: 'diner@example.com', roles: [{ role: 'diner' }] },
     { id: 'franchisee-1', name: 'Sam Store', email: 'sam@example.com', roles: [{ role: 'franchisee' }] },
+    ...Array.from({ length: 8 }, (_, index) => ({
+      id: `test-user-${index + 1}`,
+      name: `Test User ${index + 1}`,
+      email: `test-user-${index + 1}@example.com`,
+      roles: [{ role: 'diner' }],
+    })),
   ];
   await page.addInitScript(() => {
     (window as any).HSStaticMethods = { autoInit: () => {} };
@@ -35,6 +41,7 @@ async function mockApi(page: Page, options: { loggedIn?: boolean; withOrders?: b
     const request = route.request();
     const path = new URL(request.url()).pathname;
     let body;
+    let status = 200;
 
     if (path === '/api/auth' && request.method() === 'POST') {
       expect(request.postDataJSON()).toMatchObject({ name: expect.any(String), email: expect.any(String), password: expect.any(String) });
@@ -65,9 +72,14 @@ async function mockApi(page: Page, options: { loggedIn?: boolean; withOrders?: b
       const limit = Number(query.get('limit') || 10);
       body = { users: matches.slice(page * limit, (page + 1) * limit), more: matches.length > (page + 1) * limit };
     } else if (/^\/api\/user\/[^/]+$/.test(path) && request.method() === 'DELETE') {
-      const id = path.substring(path.lastIndexOf('/') + 1);
-      mockUsers = mockUsers.filter((user) => String(user.id) !== id);
-      body = { message: 'user deleted' };
+      if (options.failDeleteUser) {
+        status = 500;
+        body = { message: 'delete failed' };
+      } else {
+        const id = path.substring(path.lastIndexOf('/') + 1);
+        mockUsers = mockUsers.filter((user) => String(user.id) !== id);
+        body = { message: 'user deleted' };
+      }
     } else if (path === '/api/order/menu' && request.method() === 'GET') {
       body = [pizza];
     } else if (path === '/api/franchise' && request.method() === 'GET') {
@@ -123,7 +135,7 @@ async function mockApi(page: Page, options: { loggedIn?: boolean; withOrders?: b
       throw new Error(`Unexpected mocked API request: ${request.method()} ${request.url()}`);
     }
 
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   });
 }
 
@@ -288,6 +300,7 @@ test('diner can open the profile editor', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'New password' })).toHaveValue('');
   await page.getByRole('button', { name: 'Update' }).click();
   await expect(page.locator('[role="dialog"]')).toHaveClass(/hidden/);
+  await expect(page.locator('#hs-jwt-modal-backdrop')).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Logout' }).click();
   await page.getByRole('link', { name: 'Login' }).click();
@@ -322,6 +335,21 @@ test('diner can update profile without changing the password', async ({ page }) 
   await expect(page.getByRole('main')).toContainText('Renamed Diner');
 });
 
+test('diner cannot submit an invalid email address', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Register' }).click();
+  await page.getByRole('textbox', { name: 'Full name' }).fill('Pizza Diner');
+  await page.getByRole('textbox', { name: 'Email address' }).fill('diner@example.com');
+  await page.getByRole('textbox', { name: 'Password' }).fill('secret');
+  await page.getByRole('button', { name: 'Register' }).click();
+  await page.getByRole('link', { name: 'pd' }).click();
+
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('textbox', { name: 'Email' }).fill('not-an-email');
+  await expect(page.getByRole('button', { name: 'Update' })).toBeDisabled();
+});
+
 test('admin can search, paginate, and delete users', async ({ page }) => {
   await mockApi(page, { loggedIn: true, role: 'admin' });
   await page.goto('/admin-dashboard');
@@ -334,10 +362,11 @@ test('admin can search, paginate, and delete users', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Next users page' })).toBeEnabled();
 
   await page.getByRole('button', { name: 'Next users page' }).click();
-  await expect(userTable).toContainText('Sam Store');
+  await expect(userTable).toContainText('Test User 7');
   await expect(page.getByRole('button', { name: 'Previous users page' })).toBeEnabled();
 
   await page.getByRole('button', { name: 'Previous users page' }).click();
+  await expect(userTable).toContainText('Admin User');
   await page.getByRole('textbox', { name: 'Filter users by name' }).fill('Pizza Diner');
   await page.getByRole('button', { name: 'Search users' }).click();
   await expect(userTable).toContainText('Pizza Diner');
@@ -345,4 +374,16 @@ test('admin can search, paginate, and delete users', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Delete Pizza Diner' }).click();
   await expect(userTable).not.toContainText('Pizza Diner');
+});
+
+test('admin sees an error and the user stays listed when deletion fails', async ({ page }) => {
+  await mockApi(page, { loggedIn: true, role: 'admin', failDeleteUser: true });
+  await page.goto('/admin-dashboard');
+  const userTable = page.getByRole('table', { name: 'Users' });
+  await expect(userTable).toContainText('Pizza Diner');
+
+  await page.getByRole('button', { name: 'Delete Pizza Diner' }).click();
+
+  await expect(page.getByRole('alert')).toContainText('Could not delete user');
+  await expect(userTable).toContainText('Pizza Diner');
 });

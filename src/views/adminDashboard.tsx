@@ -7,6 +7,8 @@ import { pizzaService } from '../service/service';
 import { Franchise, FranchiseList, Role, Store, User, UserList } from '../service/pizzaService';
 import { TrashIcon } from '../icons';
 
+const PAGE_SIZE = 10;
+
 interface Props {
   user: User | null;
 }
@@ -19,18 +21,19 @@ export default function AdminDashboard(props: Props) {
   const [users, setUsers] = React.useState<UserList>({ users: [], more: false });
   const [userPage, setUserPage] = React.useState(0);
   const [userFilter, setUserFilter] = React.useState('*');
+  const [userError, setUserError] = React.useState('');
   const userFilterRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     (async () => {
-      setFranchiseList(await pizzaService.getFranchises(franchisePage, 3, '*'));
+      setFranchiseList(await pizzaService.getFranchises(franchisePage, PAGE_SIZE, '*'));
     })();
   }, [props.user, franchisePage]);
 
   React.useEffect(() => {
     if (!Role.isRole(props.user, Role.Admin)) return;
     (async () => {
-      setUsers(await pizzaService.getUsers(userPage, 3, userFilter));
+      setUsers(await pizzaService.getUsers(userPage, PAGE_SIZE, userFilter));
     })();
   }, [props.user, userPage, userFilter]);
 
@@ -47,7 +50,7 @@ export default function AdminDashboard(props: Props) {
   }
 
   async function filterFranchises() {
-    setFranchiseList(await pizzaService.getFranchises(franchisePage, 10, `*${filterFranchiseRef.current?.value}*`));
+    setFranchiseList(await pizzaService.getFranchises(franchisePage, PAGE_SIZE, `*${filterFranchiseRef.current?.value}*`));
   }
 
   function filterUsers() {
@@ -57,10 +60,15 @@ export default function AdminDashboard(props: Props) {
 
   async function deleteUser(user: User) {
     if (!user.id) return;
-    await pizzaService.deleteUser(user.id);
-    const nextPage = userPage > 0 && users.users.length === 1 ? userPage - 1 : userPage;
-    if (nextPage !== userPage) setUserPage(nextPage);
-    else setUsers(await pizzaService.getUsers(userPage, 3, userFilter));
+    setUserError('');
+    try {
+      await pizzaService.deleteUser(user.id);
+      const nextPage = userPage > 0 && users.users.length === 1 ? userPage - 1 : userPage;
+      if (nextPage !== userPage) setUserPage(nextPage);
+      else setUsers(await pizzaService.getUsers(userPage, PAGE_SIZE, userFilter));
+    } catch {
+      setUserError('Could not delete user. Please try again.');
+    }
   }
 
   let response = <NotFound />;
@@ -69,6 +77,7 @@ export default function AdminDashboard(props: Props) {
       <View title="Mama Ricci's kitchen">
         <div className="text-start py-8 px-4 sm:px-6 lg:px-8">
           <h3 className="text-neutral-100 text-xl">Users</h3>
+          {userError && <p role="alert" className="my-2 text-red-200">{userError}</p>}
           <div className="bg-neutral-100 overflow-clip my-4">
             <div className="overflow-x-auto">
               <table aria-label="Users" className="min-w-full divide-y divide-gray-200">
